@@ -106,21 +106,27 @@ func (q *ReadReq) UnmarshalBinary(p []byte) error {
 		return errors.New("invalid RRQ")
 	}
 
-	// Read the filename
+	// Read the filename including the packet null byte delimiter
 	q.Filename, err = r.ReadString(0)
 	if err != nil {
 		return errors.New("invalid RRQ")
 	}
 
-	// Remove the null byte
+	// Remove the null byte from the end of the filename
 	q.Filename = strings.TrimRight(q.Filename, "\x00")
 	if len(q.Filename) == 0 {
 		return errors.New("invalid RRQ")
 	}
 
-	// Get the mode
+	// Get the mode including null byte delimiter again
 	q.Mode, err = r.ReadString(0)
 	if err != nil {
+		return errors.New("invalid RRQ")
+	}
+
+	// Remove null byte delimiter again
+	q.Mode = strings.TrimRight(q.Mode, "\x00")
+	if len(q.Filename) == 0 {
 		return errors.New("invalid RRQ")
 	}
 
