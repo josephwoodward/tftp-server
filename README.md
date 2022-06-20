@@ -27,3 +27,13 @@ The data packet contains an opcode, the block number (a monotonically incrementi
 | Opcode |   Block #  |   Data     |
 ----------------------------------
 ```
+
+### ACK Packet
+
+ Ack responds to the server with a block number to inform the server which packet it just received
+```
+2 bytes     2 bytes
+---------------------
+| Opcode |   Block #  |
+---------------------
+```

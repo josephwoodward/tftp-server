@@ -61,10 +61,10 @@ func (q *ReadReq) MarshalBinary() ([]byte, error) {
 
 	// capacity: operation code + filename + 0 byte + mode + 0 byte
 	// https://datatracker.ietf.org/doc/html/rfc1350#section-5
-	cap := 2 + 2 + len(q.Filename) + 1 + len(q.Mode) + 1
+	capacity := 2 + 2 + len(q.Filename) + 1 + len(q.Mode) + 1
 
 	b := new(bytes.Buffer)
-	b.Grow(cap)
+	b.Grow(capacity)
 
 	// Write Opcode
 	if err := binary.Write(b, binary.BigEndian, OpRRQ); err != nil {
@@ -208,21 +208,37 @@ func (d *Data) UnmarshalBinary(p []byte) error {
 // ---------------------
 type Ack uint16
 
-func (a Ack) MarshalBinary() ([]byte, error) {
-	cap := 2 + 2 // operation code + block number
+func (a *Ack) MarshalBinary() ([]byte, error) {
+	capacity := 2 + 2 // operation code + block number
 
 	b := new(bytes.Buffer)
-	b.Grow(cap)
+	b.Grow(capacity)
 
 	err := binary.Write(b, binary.BigEndian, OpAck) // Write ack op code to buffer
 	if err != nil {
 		return nil, err
 	}
 
-	err = binary.Write(b, binary.BigEndian, a) // Now write block number
+	err = binary.Write(b, binary.BigEndian, &a) // Now write block number
 	if err != nil {
 		return nil, err
 	}
 
 	return b.Bytes(), nil
+}
+
+func (a *Ack) UnmarshalBinary(p []byte) error {
+	var code OpCode
+
+	r := bytes.NewReader(p)
+
+	if err := binary.Read(r, binary.BigEndian, &code); err != nil {
+		return err
+	}
+
+	if code != OpAck {
+		return errors.New("invalid ACK")
+	}
+
+	return binary.Read(r, binary.BigEndian, a)
 }
