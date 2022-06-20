@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 	"strings"
 )
 
@@ -41,21 +42,23 @@ const (
 	ErrNoUser
 )
 
+// ReadReq acts as the initial read request packet (RRQ) informing the server which file it would like to read
+//2 bytes     string    1 byte     string   1 byte
+//------------------------------------------------
+//| Opcode |  Filename  |   0  |    Mode    |   0  |
+//------------------------------------------------
 type ReadReq struct {
 	Filename string
 	Mode     string
 }
 
-func (q *ReadReq) MarshalBinary([]byte, error) ([]byte, error) {
+// MarshalBinary won't work yet as we're only focusing on downloading
+func (q *ReadReq) MarshalBinary() ([]byte, error) {
 	mode := "octet"
 	if q.Mode != "" {
 		mode = q.Mode
 	}
 
-	//2 bytes     string    1 byte     string   1 byte
-	//------------------------------------------------
-	//| Opcode |  Filename  |   0  |    Mode    |   0  |
-	//------------------------------------------------
 	// capacity: operation code + filename + 0 byte + mode + 0 byte
 	// https://datatracker.ietf.org/doc/html/rfc1350#section-5
 	cap := 2 + 2 + len(q.Filename) + 1 + len(q.Mode) + 1
@@ -136,4 +139,90 @@ func (q *ReadReq) UnmarshalBinary(p []byte) error {
 	}
 
 	return nil
+}
+
+// Data acts as the data packet that will transfer the files payload
+// 2 bytes     2 bytes      n bytes
+// ----------------------------------
+// | Opcode |   Block #  |   Data     |
+// ----------------------------------
+type Data struct {
+	// Block enables UDP reliability by incrementing on each packet sent,
+	// the client discriminate between new packets and duplicates, sending an ack including the block number to
+	// confirm delivery
+	Block   uint16
+	Payload io.Reader
+}
+
+func (d *Data) MarshalBinary() ([]byte, error) {
+	b := new(bytes.Buffer)
+	b.Grow(DatagramSize)
+
+	d.Block++
+
+	err := binary.Write(b, binary.BigEndian, d.Block) // write block number to packet
+	if err != nil {
+		return nil, err
+	}
+
+	// Every packet will be BlockSize (516 bytes) expect for the last one, which is how the client knows
+	// it's reached the end of the stream
+	_, err = io.CopyN(b, d.Payload, BlockSize)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+func (d *Data) UnmarshalBinary(p []byte) error {
+	// Sanity check the payload data
+	if l := len(p); l < 4 || l > DatagramSize {
+		return errors.New("invalid DATA")
+	}
+
+	var opcode any
+	// Read opcode from packet
+	err := binary.Read(bytes.NewReader(p[:2]), binary.BigEndian, &opcode)
+	if err != nil || opcode != OpData {
+		return errors.New("invalid DATA")
+	}
+
+	// Read block number
+	err = binary.Read(bytes.NewReader(p[2:4]), binary.BigEndian, &d.Block)
+	if err != nil {
+		return errors.New("invalid DATA")
+	}
+
+	// Read byte slice to get the end to get data
+	d.Payload = bytes.NewBuffer(p[4:])
+
+	return nil
+}
+
+// Ack responds to the server with a block number to inform the server
+// which packet it just received
+// 2 bytes     2 bytes
+// ---------------------
+// | Opcode |   Block #  |
+// ---------------------
+type Ack uint16
+
+func (a Ack) MarshalBinary() ([]byte, error) {
+	cap := 2 + 2 // operation code + block number
+
+	b := new(bytes.Buffer)
+	b.Grow(cap)
+
+	err := binary.Write(b, binary.BigEndian, OpAck) // Write ack op code to buffer
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(b, binary.BigEndian, a) // Now write block number
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }
