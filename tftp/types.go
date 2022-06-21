@@ -242,3 +242,41 @@ func (a *Ack) UnmarshalBinary(p []byte) error {
 
 	return binary.Read(r, binary.BigEndian, a)
 }
+
+// Err packet
+// 2 bytes     2 bytes       string    1 byte
+// -----------------------------------------
+// | Opcode |  ErrorCode |   ErrMsg   |   0  |
+// -----------------------------------------
+type Err struct {
+	Error   ErrCode
+	Message string
+}
+
+func (e Err) MarshalBinary() ([]byte, error) {
+	capacity := 2 + 2 + len(e.Message) + 1
+
+	b := new(bytes.Buffer)
+	b.Grow(capacity)
+
+	err := binary.Write(b, binary.BigEndian, OpErr) // Write OpErr op code to buffer
+	if err != nil {
+		return nil, err
+	}
+
+	// Now write error code
+	if err = binary.Write(b, binary.BigEndian, e.Error); err != nil {
+		return nil, err
+	}
+
+	_, err = b.WriteString(e.Message)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = b.WriteByte(0); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
