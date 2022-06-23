@@ -27,7 +27,7 @@ func (s *Server) ListenAndServer(addr string) error {
 }
 
 func (s *Server) Serve(conn net.PacketConn) error {
-	if conn != nil {
+	if conn == nil {
 		return errors.New("nil connection")
 	}
 
@@ -69,9 +69,23 @@ func (s *Server) handle(clientAddr string, rrq ReadReq) {
 	defer func() { _ = conn.Close() }()
 
 	var (
-		ackPkt  Ack
-		errPkt  Err
+		//ackPkt  Ack
+		//errPkt  Err
 		dataPkt = Data{Payload: bytes.NewReader(s.Payload)}
-		buf     = make([]byte, DatagramSize)
+		//buf     = make([]byte, DatagramSize)
 	)
+
+	for n := DatagramSize; n == DatagramSize; {
+		data, err := dataPkt.MarshalBinary()
+		if err != nil {
+			log.Printf("[%s] preparing data packet: %v", clientAddr, err)
+			return
+		}
+
+		for i := s.Retries; i > 0; i-- {
+			n, err = conn.Write(data) // send the data packet
+
+		}
+
+	}
 }

@@ -3,6 +3,13 @@
 TFTP is a (trivial) File Transfer Protocol that ensures reliable data transfer over UDP. It does this by using a subset of mechanics that make TCP reliable.  
 The full RFC can be found below, with the packet structure highlighted in this read me.
 
+### Usage
+
+```shell
+$ tftp -e 127.0.0.1
+get payload.jpeg
+```
+
 https://datatracker.ietf.org/doc/html/rfc1350
 
 ### Packet structure
