@@ -1,4 +1,4 @@
-# Trivial File Transfer Protocol Server
+# Trivial File Transfer Protocol Server (TFTP) implementation in Go
 
 TFTP is a (trivial) File Transfer Protocol that ensures reliable data transfer over UDP. It does this by using a subset of mechanics that make TCP reliable.  
 The full RFC can be found below, with the packet structure highlighted in this read me.
