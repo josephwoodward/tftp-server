@@ -129,7 +129,7 @@ func (q *ReadReq) UnmarshalBinary(p []byte) error {
 
 	// Remove null byte delimiter again
 	q.Mode = strings.TrimRight(q.Mode, "\x00")
-	if len(q.Filename) == 0 {
+	if len(q.Mode) == 0 {
 		return errors.New("invalid RRQ")
 	}
 
@@ -279,4 +279,28 @@ func (e Err) MarshalBinary() ([]byte, error) {
 	}
 
 	return b.Bytes(), nil
+}
+
+func (e Err) UnmarshalBinary(p []byte) error {
+	r := bytes.NewBuffer(p)
+
+	var code OpCode
+
+	if err := binary.Read(r, binary.BigEndian, &code); err != nil { // read op code
+		return err
+	}
+
+	if code != OpErr {
+		return errors.New("invalid ERROR")
+	}
+
+	if err := binary.Read(r, binary.BigEndian, &e.Error); err != nil {
+		return err
+	}
+
+	var err error
+	e.Message, err = r.ReadString(0)
+	e.Message = strings.TrimRight(e.Message, "\x00") // remove the 0-byte
+
+	return err
 }

@@ -53,6 +53,11 @@ func (s *Server) Serve(conn net.PacketConn) error {
 			return err
 		}
 
+		if err = rrq.UnmarshalBinary(buf); err != nil {
+			log.Printf("[%s] bad request: %v", addr, err)
+			continue
+		}
+
 		go s.handle(addr.String(), rrq)
 	}
 }
@@ -69,12 +74,14 @@ func (s *Server) handle(clientAddr string, rrq ReadReq) {
 	defer func() { _ = conn.Close() }()
 
 	var (
-		//ackPkt  Ack
-		//errPkt  Err
+		ackPkt  Ack
+		errPkt  Err
 		dataPkt = Data{Payload: bytes.NewReader(s.Payload)}
-		//buf     = make([]byte, DatagramSize)
+		buf     = make([]byte, DatagramSize)
 	)
 
+NextPacket:
+	// continue looping whilst data packet is equal to DatagramSize (516 bytes)
 	for n := DatagramSize; n == DatagramSize; {
 		data, err := dataPkt.MarshalBinary()
 		if err != nil {
@@ -82,10 +89,43 @@ func (s *Server) handle(clientAddr string, rrq ReadReq) {
 			return
 		}
 
+	Retry:
 		for i := s.Retries; i > 0; i-- {
 			n, err = conn.Write(data) // send the data packet
+			if err != nil {
+				log.Printf("[%s] write: %v", clientAddr, err)
+				return
+			}
 
+			// Wait for ACK packet
+			_ = conn.SetReadDeadline(time.Now().Add(s.Timeout))
+
+			if _, err = conn.Read(buf); err != nil {
+				if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
+					continue Retry
+				}
+
+				log.Printf("[%s] waiting for ACK: %v", clientAddr, err)
+				return
+			}
+
+			switch {
+			case ackPkt.UnmarshalBinary(buf) == nil:
+				if uint16(ackPkt) == dataPkt.Block {
+					// received ACK; send next packet
+					continue NextPacket
+				}
+			case errPkt.UnmarshalBinary(buf) == nil:
+				log.Printf("[%s] received error: %v", clientAddr, errPkt.Message)
+				return
+			default:
+				log.Printf("[%s] bad packet", clientAddr)
+			}
 		}
 
+		log.Printf("[%s] exhausted retries", clientAddr)
+		return
 	}
+
+	log.Printf("[%s] sent %d blocks", clientAddr, dataPkt.Block)
 }

@@ -14,6 +14,17 @@ https://datatracker.ietf.org/doc/html/rfc1350
 
 ### Packet structure
 
+The TFTP header of a packet contains one of the following opcodes to indicate the intended operation, these are:
+
+```
+opcode  operation
+  1     Read request (RRQ)
+  2     Write request (WRQ)
+  3     Data (DATA)
+  4     Acknowledgment (ACK)
+  5     Error (ERROR)
+```
+
 #### Initial Read Request
 
 ReadReq acts as the initial read request packet (RRQ) informing the server which file it would like to read
