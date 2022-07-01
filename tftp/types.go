@@ -29,6 +29,8 @@ const (
 	OpErr
 )
 
+//const OpData uint16 = 3
+
 type ErrCode uint16
 
 const (
@@ -110,31 +112,26 @@ func (q *ReadReq) UnmarshalBinary(p []byte) error {
 	}
 
 	// Read the filename including the packet null byte delimiter
-	q.Filename, err = r.ReadString(0)
-	if err != nil {
+	if q.Filename, err = r.ReadString(0); err != nil {
 		return errors.New("invalid RRQ")
 	}
 
 	// Remove the null byte from the end of the filename
-	q.Filename = strings.TrimRight(q.Filename, "\x00")
-	if len(q.Filename) == 0 {
+	if q.Filename = strings.TrimRight(q.Filename, "\x00"); len(q.Filename) == 0 {
 		return errors.New("invalid RRQ")
 	}
 
 	// Get the mode including null byte delimiter again
-	q.Mode, err = r.ReadString(0)
-	if err != nil {
+	if q.Mode, err = r.ReadString(0); err != nil {
 		return errors.New("invalid RRQ")
 	}
 
 	// Remove null byte delimiter again
-	q.Mode = strings.TrimRight(q.Mode, "\x00")
-	if len(q.Mode) == 0 {
+	if q.Mode = strings.TrimRight(q.Mode, "\x00"); len(q.Mode) == 0 {
 		return errors.New("invalid RRQ")
 	}
 
-	actual := strings.ToLower(q.Mode)
-	if actual != "octet" {
+	if actual := strings.ToLower(q.Mode); actual != "octet" {
 		return errors.New("only binary transfers supported at the moment")
 	}
 
@@ -160,14 +157,17 @@ func (d *Data) MarshalBinary() ([]byte, error) {
 
 	d.Block++
 
-	err := binary.Write(b, binary.BigEndian, d.Block) // write block number to packet
-	if err != nil {
+	if err := binary.Write(b, binary.BigEndian, uint16(OpData)); err != nil {
+		return nil, err
+	}
+
+	if err := binary.Write(b, binary.BigEndian, d.Block); err != nil { // write block number to packet
 		return nil, err
 	}
 
 	// Every packet will be BlockSize (516 bytes) expect for the last one, which is how the client knows
 	// it's reached the end of the stream
-	_, err = io.CopyN(b, d.Payload, BlockSize)
+	_, err := io.CopyN(b, d.Payload, BlockSize)
 	if err != nil && err != io.EOF {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ func (s *Server) Serve(conn net.PacketConn) error {
 	}
 
 	if s.Timeout == 0 {
-		s.Timeout = 6 * time.Second
+		s.Timeout = 10 * time.Second
 	}
 
 	var rrq ReadReq
