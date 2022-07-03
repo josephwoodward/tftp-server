@@ -10,7 +10,7 @@ import (
 
 const (
 	DatagramSize = 516 // Maximum supported datagram size
-	BlockSize    = DatagramSize
+	BlockSize    = DatagramSize - 4
 )
 
 type OpCode uint16
