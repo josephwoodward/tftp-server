@@ -17,3 +17,8 @@
 
 # Dependency directories (remove the comment below to include it)
  vendor/
+<<<<<<< HEAD
+=======
+ .idea/
+.DS_Store
+>>>>>>> 9438dd2 (Add .DS_Store to .gitignore)
